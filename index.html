@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Irrigazione</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root{
+    --bg:#f3f5f1; --card:#ffffff; --ink:#16302b; --ink-soft:#5b6f68; --line:#e1e7e2;
+    --acqua:#0f7a72; --acqua-dark:#0a5c56; --off:#c7ccc9; --radius:16px;
+    --rosso:#e0453a; --rosso-scuro:#b8342a;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); padding-bottom:40px; }
+  header{ padding:22px 20px 18px; background:linear-gradient(160deg,var(--acqua) 0%,var(--acqua-dark) 100%); color:#fff; border-radius:0 0 24px 24px; box-shadow:0 4px 14px rgba(10,92,86,.25); }
+  header h1{ margin:0; font-size:1.5rem; }
+  header .stato{ margin-top:6px; font-size:.82rem; opacity:.85; display:flex; align-items:center; gap:6px; }
+  .dot{width:7px;height:7px;border-radius:50%;background:#8ee6c2;display:inline-block;}
+  .dot.off{background:#e6a08e;}
+
+  main{padding:16px;max-width:520px;margin:0 auto;}
+
+  .zona{ background:var(--card); border-radius:var(--radius); padding:16px 16px 14px; margin-bottom:14px; border:1px solid var(--line); }
+  .zona.attiva{
+    box-shadow:0 0 0 2px var(--rosso);
+    animation:pulsa-bordo 1.6s ease-in-out infinite;
+  }
+  @keyframes pulsa-bordo{
+    0%, 100% { box-shadow:0 0 0 2px var(--rosso); }
+    50% { box-shadow:0 0 0 4px var(--rosso), 0 0 12px rgba(224,69,58,.35); }
+  }
+  .badge-live{
+    font-size:.68rem; background:var(--rosso); color:#fff; padding:3px 10px 3px 8px;
+    border-radius:20px; font-weight:700; letter-spacing:.3px; display:none;
+    align-items:center; gap:5px;
+  }
+  .zona.attiva .badge-live{ display:inline-flex; }
+  .badge-live .pallino-rosso{
+    width:7px; height:7px; border-radius:50%; background:#fff;
+    animation:lampeggia 1s ease-in-out infinite;
+  }
+  @keyframes lampeggia{
+    0%, 100% { opacity:1; }
+    50% { opacity:.25; }
+  }
+  .zona-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .zona-nome{ font-size:1.05rem; font-weight:600; display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+  .nome-zona-input{
+    border:none; background:none; font-size:1.05rem; font-weight:600; color:var(--ink);
+    padding:2px 4px; border-radius:6px; min-width:0; flex-shrink:1;
+  }
+  .nome-zona-input:focus{ background:#fafcfa; outline:1px solid var(--line); }
+
+  .switch{ position:relative;width:42px;height:24px; flex-shrink:0; }
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{ position:absolute;cursor:pointer;inset:0; background:var(--off);border-radius:24px;transition:.2s; }
+  .slider:before{ content:"";position:absolute;height:18px;width:18px;left:3px;top:3px; background:#fff;border-radius:50%;transition:.2s; }
+  input:checked + .slider{background:var(--acqua);}
+  input:checked + .slider:before{transform:translateX(18px);}
+
+  .riga-manuale{ display:flex; gap:8px; align-items:flex-end; margin-bottom:12px; }
+  .campo{ display:flex; flex-direction:column; gap:4px; }
+  .campo label{ font-size:.72rem; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+  .campo input[type=number], .campo select{ border:1px solid var(--line); border-radius:10px; padding:8px 8px; font-size:.9rem; background:#fafcfa; color:var(--ink); width:100%; }
+  .campo.durata-manuale{ width:90px; flex-shrink:0; }
+  .azioni-manuali{ display:flex; gap:8px; flex:1; }
+  button{ border:none; border-radius:10px; padding:9px 10px; font-size:.85rem; font-weight:600; cursor:pointer; }
+  .btn-on{background:var(--acqua);color:#fff; flex:1;}
+  .btn-off{background:#eef1ef;color:var(--ink);border:1px solid var(--line); flex:1;}
+
+  .stagione{ display:flex; align-items:center; gap:6px; margin-bottom:14px; font-size:.8rem; color:var(--ink-soft); flex-wrap:wrap; }
+  .stagione select{ border:1px solid var(--line); border-radius:8px; padding:6px 4px; font-size:.8rem; background:#fafcfa; color:var(--ink); }
+
+  .settimana{ border-top:1px solid var(--line); padding-top:12px; }
+  .giorni-tab{ display:flex; gap:4px; margin-bottom:12px; }
+  .tab-giorno{
+    flex:1; text-align:center; padding:8px 0; border-radius:10px; border:1px solid var(--line);
+    background:#fafcfa; color:var(--ink-soft); font-size:.75rem; font-weight:700; cursor:pointer;
+    position:relative;
+  }
+  .tab-giorno.attivo{ background:var(--acqua); color:#fff; border-color:var(--acqua); }
+  .tab-giorno .puntino{
+    position:absolute; top:3px; right:5px; width:5px; height:5px; border-radius:50%; background:var(--acqua);
+  }
+  .tab-giorno.attivo .puntino{ background:#fff; }
+
+  .slot-riga{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border:1px solid var(--line);
+    border-radius:12px; background:#fafcfa; margin-bottom:8px;
+  }
+  .slot-riga.on{ background:#eaf6f3; border-color:#cfe9e3; }
+  .slot-riga.non-salvato{ background:#fdf3e7; border-color:#f0d9b5; }
+  .slot-riga .avviso-non-salvato{
+    font-size:.68rem; color:#b8823a; font-weight:700; white-space:nowrap;
+  }
+  .slot-riga input[type=time]{ border:1px solid var(--line); border-radius:8px; padding:7px 6px; font-size:.9rem; flex:1; min-width:0; }
+  .slot-riga input[type=number]{ border:1px solid var(--line); border-radius:8px; padding:7px 6px; font-size:.9rem; width:64px; text-align:center; }
+  .slot-riga .unita{ font-size:.72rem; color:var(--ink-soft); }
+  .cancella-slot{
+    width:22px; height:22px; border-radius:50%; background:#f3e6e3; color:#a35c4a;
+    display:flex; align-items:center; justify-content:center; font-size:.75rem;
+    cursor:pointer; flex-shrink:0;
+  }
+  .conferma-slot{
+    width:22px; height:22px; border-radius:50%; background:#e0f0ec; color:var(--acqua-dark);
+    display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:700;
+    cursor:pointer; flex-shrink:0;
+  }
+
+  .log{ margin-top:22px; }
+  .log h2{ font-size:.95rem; margin:0 0 10px 4px; color:var(--ink-soft); }
+  .log-item{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:8px; font-size:.85rem; display:flex; justify-content:space-between; color:var(--ink-soft); }
+  .log-item b{color:var(--ink);}
+
+  .toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:10px 18px; border-radius:10px; font-size:.85rem; opacity:0; transition:.25s; pointer-events:none; z-index:50; max-width:85%; text-align:center; }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .overlay-conferma{
+    position:fixed; inset:0; background:rgba(22,48,43,.45); display:flex;
+    align-items:flex-end; justify-content:center; z-index:60;
+  }
+  .box-conferma{
+    background:#fff; border-radius:20px 20px 0 0; padding:20px 20px 26px; width:100%; max-width:480px;
+    animation:salita .2s ease;
+  }
+  @keyframes salita{ from{transform:translateY(20px); opacity:0;} to{transform:translateY(0); opacity:1;} }
+  .box-conferma p{ margin:0 0 16px; font-size:.95rem; color:var(--ink); text-align:center; }
+  .box-conferma .scelte{ display:flex; gap:10px; }
+  .box-conferma button{ flex:1; padding:12px; border-radius:12px; font-size:.9rem; }
+  .btn-solo-oggi{ background:#eef1ef; color:var(--ink); border:1px solid var(--line); }
+  .btn-tutti-giorni{ background:var(--acqua); color:#fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💧 Irrigazione</h1>
+  <div class="stato"><span class="dot off" id="dotDevice"></span><span id="testoDevice">connessione al dispositivo…</span><span id="segnaleWifi"></span></div>
+</header>
+
+<main>
+  <div id="zoneContainer"></div>
+  <div class="log">
+    <h2>Ultimi cicli</h2>
+    <div id="logContainer"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBYtC3pwrC77oM5vuDmsnqVAseLyLFXQlg",
+  authDomain: "centralina-irrigazione.firebaseapp.com",
+  databaseURL: "https://centralina-irrigazione-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "centralina-irrigazione",
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+const ZONE_IDS = ["zona1","zona2","zona3","zona4"];
+const zoneContainer = document.getElementById("zoneContainer");
+const logContainer = document.getElementById("logContainer");
+
+const GIORNI_ORDINE = [1,2,3,4,5,6,0]; // wday secondo JS Date.getDay(): 0=Dom...6=Sab
+const GIORNI_ABBR = { 1:"Lun", 2:"Mar", 3:"Mer", 4:"Gio", 5:"Ven", 6:"Sab", 0:"Dom" };
+const GIORNI_NOMI = { 1:"Lunedì", 2:"Martedì", 3:"Mercoledì", 4:"Giovedì", 5:"Venerdì", 6:"Sabato", 0:"Domenica" };
+const MESI_LABEL = ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
+const NUM_SLOT = 5;
+
+const zoneData = {};        // cache dell'ultimo snapshot per zona
+const giornoSelezionato = {}; // giorno attualmente mostrato per zona
+const modificheNonSalvate = {}; // true se ci sono campi orario/durata non confermati
+
+function slotVuoto(){ return { inizio:"", durataMin:5, attivo:false, ultimaEsecuzione:"" }; }
+function orariVuoti(){
+  const o = {};
+  [0,1,2,3,4,5,6].forEach(w => { o[String(w)] = Array.from({length:NUM_SLOT}, slotVuoto); });
+  return o;
+}
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2400);
+}
+
+function popolaSelectMeseGiorno(selGiorno, selMese){
+  selGiorno.innerHTML = "";
+  for (let g = 1; g <= 31; g++){
+    const opt = document.createElement("option");
+    opt.value = String(g).padStart(2,"0");
+    opt.textContent = g;
+    selGiorno.appendChild(opt);
+  }
+  selMese.innerHTML = "";
+  MESI_LABEL.forEach((m, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i+1).padStart(2,"0");
+    opt.textContent = m;
+    selMese.appendChild(opt);
+  });
+}
+
+auth.signInAnonymously().catch(err => {
+  console.error(err);
+  showToast("Errore di accesso: " + err.message);
+});
+
+let giaInizializzato = false;
+
+auth.onAuthStateChanged(user => {
+  if (user && !giaInizializzato) {
+    giaInizializzato = true;
+    inizializzaZone();
+    ascoltaDevice();
+    ascoltaLog();
+  }
+});
+
+function creaCardZona(id){
+  const div = document.createElement("div");
+  div.className = "zona";
+  div.id = "card-" + id;
+
+  let tabsHtml = "";
+  GIORNI_ORDINE.forEach(wday => {
+    tabsHtml += `<button class="tab-giorno" id="tab-${id}-${wday}" onclick="selezionaGiorno('${id}',${wday})"><span class="puntino" id="puntino-${id}-${wday}" style="display:none"></span>${GIORNI_ABBR[wday]}</button>`;
+  });
+
+  div.innerHTML = `
+    <div class="zona-top">
+      <div class="zona-nome">
+        <input type="text" class="nome-zona-input" id="nome-${id}" maxlength="24">
+        <span class="badge-live" id="live-${id}"><span class="pallino-rosso"></span>IN CORSO</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="abilitata-${id}">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="riga-manuale">
+      <div class="campo durata-manuale">
+        <label>Durata manuale</label>
+        <input type="number" min="1" max="180" id="durata-manuale-${id}">
+      </div>
+      <div class="azioni-manuali">
+        <button class="btn-on" onclick="comando('${id}','on')">Apri ora</button>
+        <button class="btn-off" onclick="comando('${id}','off')">Chiudi ora</button>
+      </div>
+    </div>
+
+    <div class="stagione">
+      <span>Stagione:</span>
+      <select id="stag-ini-g-${id}"></select>
+      <select id="stag-ini-m-${id}"></select>
+      <span>→</span>
+      <select id="stag-fin-g-${id}"></select>
+      <select id="stag-fin-m-${id}"></select>
+    </div>
+
+    <div class="settimana">
+      <div class="giorni-tab">${tabsHtml}</div>
+      <div id="slotlist-${id}"></div>
+    </div>
+  `;
+  return div;
+}
+
+function inizializzaZone(){
+  const oggiWday = new Date().getDay();
+
+  ZONE_IDS.forEach(id => {
+    zoneContainer.appendChild(creaCardZona(id));
+    giornoSelezionato[id] = oggiWday;
+
+    popolaSelectMeseGiorno(document.getElementById(`stag-ini-g-${id}`), document.getElementById(`stag-ini-m-${id}`));
+    popolaSelectMeseGiorno(document.getElementById(`stag-fin-g-${id}`), document.getElementById(`stag-fin-m-${id}`));
+
+    aggiornaTabsUI(id);
+
+    const ref = db.ref("/zone/" + id);
+
+    ref.once("value", snap => {
+      if (!snap.exists()) {
+        ref.set({
+          nome: id === "zona1" ? "Zona 1" : id,
+          abilitata: false,
+          durataManualeMin: 15,
+          stagioneInizio: "03-01",
+          stagioneFine: "10-31",
+          orari: orariVuoti(),
+          statoAttuale: false,
+          comandoManuale: ""
+        });
+      }
+    });
+
+    ref.on("value", snap => {
+      const z = snap.val();
+      if (!z) return;
+      zoneData[id] = z;
+
+      document.getElementById(`nome-${id}`).value = z.nome || id;
+      document.getElementById(`abilitata-${id}`).checked = !!z.abilitata;
+      document.getElementById(`durata-manuale-${id}`).value = z.durataManualeMin || 15;
+
+      const iniMM = (z.stagioneInizio || "03-01").slice(0,2);
+      const iniGG = (z.stagioneInizio || "03-01").slice(3,5);
+      const finMM = (z.stagioneFine || "10-31").slice(0,2);
+      const finGG = (z.stagioneFine || "10-31").slice(3,5);
+      document.getElementById(`stag-ini-m-${id}`).value = iniMM;
+      document.getElementById(`stag-ini-g-${id}`).value = iniGG;
+      document.getElementById(`stag-fin-m-${id}`).value = finMM;
+      document.getElementById(`stag-fin-g-${id}`).value = finGG;
+
+      aggiornaPuntiniGiorni(id);
+      renderSlotVerticale(id);
+
+      const card = document.getElementById("card-" + id);
+      card.classList.toggle("attiva", !!z.statoAttuale);
+    });
+
+    document.getElementById(`nome-${id}`).addEventListener("change", e => {
+      const nuovoNome = e.target.value.trim() || id;
+      db.ref("/zone/" + id + "/nome").set(nuovoNome);
+      showToast("Nome aggiornato");
+    });
+
+    document.getElementById(`abilitata-${id}`).addEventListener("change", e => {
+      db.ref("/zone/" + id + "/abilitata").set(e.target.checked);
+      showToast((e.target.checked ? "Attivata" : "Disattivata") + " " + id);
+    });
+    document.getElementById(`durata-manuale-${id}`).addEventListener("change", e => {
+      const val = parseInt(e.target.value || "15", 10);
+      db.ref("/zone/" + id + "/durataManualeMin").set(val);
+      showToast("Durata manuale aggiornata");
+    });
+
+    const aggiornaStagione = () => {
+      const iniMM = document.getElementById(`stag-ini-m-${id}`).value;
+      const iniGG = document.getElementById(`stag-ini-g-${id}`).value;
+      const finMM = document.getElementById(`stag-fin-m-${id}`).value;
+      const finGG = document.getElementById(`stag-fin-g-${id}`).value;
+      db.ref("/zone/" + id + "/stagioneInizio").set(`${iniMM}-${iniGG}`);
+      db.ref("/zone/" + id + "/stagioneFine").set(`${finMM}-${finGG}`);
+      showToast("Periodo aggiornato");
+    };
+    [`stag-ini-m-${id}`, `stag-ini-g-${id}`, `stag-fin-m-${id}`, `stag-fin-g-${id}`].forEach(elId => {
+      document.getElementById(elId).addEventListener("change", aggiornaStagione);
+    });
+  });
+}
+
+function selezionaGiorno(id, wday){
+  if (modificheNonSalvate[id]) {
+    const conferma = confirm("Hai un orario non ancora confermato (manca il tocco su ✓). Cambiare giorno lo scarta. Continuare?");
+    if (!conferma) return;
+    modificheNonSalvate[id] = false;
+  }
+  giornoSelezionato[id] = wday;
+  aggiornaTabsUI(id);
+  renderSlotVerticale(id);
+}
+
+function aggiornaTabsUI(id){
+  GIORNI_ORDINE.forEach(w => {
+    const tab = document.getElementById(`tab-${id}-${w}`);
+    if (tab) tab.classList.toggle("attivo", w === giornoSelezionato[id]);
+  });
+}
+
+// mostra un puntino sul tab dei giorni che hanno almeno una fascia attiva
+function aggiornaPuntiniGiorni(id){
+  const z = zoneData[id];
+  if (!z) return;
+  const orari = z.orari || {};
+  GIORNI_ORDINE.forEach(w => {
+    const slots = orari[String(w)] || [];
+    const haAttivi = slots.some(s => s && s.attivo);
+    const puntino = document.getElementById(`puntino-${id}-${w}`);
+    if (puntino) puntino.style.display = haAttivi ? "block" : "none";
+  });
+}
+
+function renderSlotVerticale(id){
+  const wday = giornoSelezionato[id];
+  const cont = document.getElementById(`slotlist-${id}`);
+  if (!cont) return;
+  cont.innerHTML = "";
+
+  const z = zoneData[id];
+  const orari = (z && z.orari) || {};
+  const slots = orari[String(wday)] || Array.from({length:NUM_SLOT}, slotVuoto);
+
+  for (let s = 0; s < NUM_SLOT; s++) {
+    const slot = slots[s] || slotVuoto();
+    const row = document.createElement("div");
+    row.className = "slot-riga" + (slot.attivo ? " on" : "");
+    row.innerHTML = `
+      <label class="mini-switch" style="position:relative;width:34px;height:20px;flex-shrink:0;">
+        <input type="checkbox" ${slot.attivo ? "checked" : ""} style="opacity:0;width:0;height:0;">
+        <span class="slider" style="position:absolute;cursor:pointer;inset:0;background:${slot.attivo ? "var(--acqua)" : "var(--off)"};border-radius:20px;transition:.2s;"></span>
+      </label>
+      <input type="time" value="${slot.inizio || ""}">
+      <input type="number" min="1" max="180" value="${slot.durataMin || 5}">
+      <span class="avviso-non-salvato" style="display:none;">non salvato</span>
+      <span class="conferma-slot" title="Conferma orario">✓</span>
+      <span class="cancella-slot" title="Cancella orario">✕</span>
+    `;
+    const chk = row.querySelector('input[type=checkbox]');
+    const inpOra = row.querySelector('input[type=time]');
+    const inpDur = row.querySelector('input[type=number]');
+    const sliderSpan = row.querySelector('.slider');
+    const btnCancella = row.querySelector('.cancella-slot');
+    const btnConferma = row.querySelector('.conferma-slot');
+    const avvisoNonSalvato = row.querySelector('.avviso-non-salvato');
+
+    btnCancella.addEventListener("click", () => cancellaSlot(id, wday, s));
+
+    const segnaComeNonSalvato = () => {
+      row.classList.add("non-salvato");
+      avvisoNonSalvato.style.display = "inline";
+      modificheNonSalvate[id] = true;
+    };
+    inpOra.addEventListener("input", segnaComeNonSalvato);
+    inpDur.addEventListener("input", segnaComeNonSalvato);
+
+    chk.addEventListener("change", () => {
+      sliderSpan.style.background = chk.checked ? "var(--acqua)" : "var(--off)";
+      row.classList.toggle("on", chk.checked);
+      // il toggle salva subito, senza chiedere propagazione (è per giorno)
+      db.ref(`/zone/${id}/orari/${wday}/${s}`).update({ attivo: chk.checked });
+      showToast(chk.checked ? "Fascia attivata" : "Fascia disattivata");
+    });
+
+    // orario e durata si salvano solo quando premi ✓, non ad ogni modifica
+    // (sul telefono il time picker scatena "change" troppo presto)
+    btnConferma.addEventListener("click", () => {
+      if (!inpOra.value) { showToast("Imposta prima un orario"); return; }
+      row.classList.remove("non-salvato");
+      avvisoNonSalvato.style.display = "none";
+      modificheNonSalvate[id] = false;
+      salvaSlot(id, wday, s, chk.checked, inpOra.value, parseInt(inpDur.value || "5", 10), true);
+    });
+
+    cont.appendChild(row);
+  }
+}
+
+function cancellaSlot(id, wday, s){
+  db.ref(`/zone/${id}/orari/${wday}/${s}`).set(slotVuoto());
+  showToast("Orario cancellato");
+}
+
+function chiediPropagazione(inizio, durataMin, onScelta){
+  const overlay = document.createElement("div");
+  overlay.className = "overlay-conferma";
+  overlay.innerHTML = `
+    <div class="box-conferma">
+      <p>${inizio} · ${durataMin} min</p>
+      <div class="scelte">
+        <button class="btn-solo-oggi">Solo questo giorno</button>
+        <button class="btn-tutti-giorni">Tutti i giorni</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const chiudi = (tutti) => {
+    document.body.removeChild(overlay);
+    onScelta(tutti);
+  };
+  overlay.querySelector(".btn-solo-oggi").addEventListener("click", () => chiudi(false));
+  overlay.querySelector(".btn-tutti-giorni").addEventListener("click", () => chiudi(true));
+  overlay.addEventListener("click", e => { if (e.target === overlay) chiudi(false); });
+}
+
+function salvaSlot(id, wday, s, attivo, inizio, durataMin, proponiPropagazione){
+  db.ref(`/zone/${id}/orari/${wday}/${s}`).update({ attivo, inizio, durataMin });
+  showToast("Orario salvato");
+
+  if (proponiPropagazione && inizio) {
+    chiediPropagazione(inizio, durataMin, tutti => {
+      if (tutti) {
+        GIORNI_ORDINE.forEach(w => {
+          if (w === wday) return;
+          db.ref(`/zone/${id}/orari/${w}/${s}`).update({ inizio, durataMin });
+        });
+        showToast("Orario applicato a tutti i giorni");
+      }
+    });
+  }
+}
+
+function comando(id, valore){
+  if (valore === "on") {
+    const durataManuale = parseInt(document.getElementById(`durata-manuale-${id}`).value || "15", 10);
+    db.ref("/zone/" + id).update({
+      durataManualeMin: durataManuale,
+      comandoManuale: "on"
+    });
+    showToast(`Apertura richiesta (${durataManuale} min)…`);
+  } else {
+    db.ref("/zone/" + id + "/comandoManuale").set("off");
+    showToast("Chiusura richiesta…");
+  }
+}
+
+function descrizioneSegnale(rssi){
+  if (rssi === undefined || rssi === null) return "";
+  if (rssi >= -50) return `📶 ottimo (${rssi} dBm)`;
+  if (rssi >= -60) return `📶 buono (${rssi} dBm)`;
+  if (rssi >= -70) return `📶 discreto (${rssi} dBm)`;
+  if (rssi >= -80) return `📶 debole (${rssi} dBm)`;
+  return `📶 molto debole (${rssi} dBm)`;
+}
+
+function ascoltaDevice(){
+  db.ref("/device").on("value", snap => {
+    const d = snap.val();
+    const dot = document.getElementById("dotDevice");
+    const testo = document.getElementById("testoDevice");
+    const segnale = document.getElementById("segnaleWifi");
+    if (!d || !d.online) {
+      dot.classList.add("off");
+      testo.textContent = "dispositivo offline";
+      segnale.textContent = "";
+      return;
+    }
+    dot.classList.remove("off");
+    const ultimo = d.ultimoContatto ? new Date(d.ultimoContatto.replace(" ","T")) : null;
+    const okDaPoco = ultimo && (Date.now() - ultimo.getTime()) < 30000;
+    testo.textContent = okDaPoco ? "online" : "ultimo contatto: " + (d.ultimoContatto || "-");
+    segnale.textContent = okDaPoco ? " · " + descrizioneSegnale(d.rssi) : "";
+  });
+}
+
+function ascoltaLog(){
+  db.ref("/log").limitToLast(8).on("value", snap => {
+    const contenitore = document.getElementById("logContainer");
+    if (!contenitore) return;
+    contenitore.innerHTML = "";
+    const entries = [];
+    snap.forEach(child => { entries.push(child.val()); });
+    entries.reverse().forEach(e => {
+      const div = document.createElement("div");
+      div.className = "log-item";
+      const orario = e.fine || e.inizio || "";
+      div.innerHTML = `<span><b>${e.zona || "-"}</b> · ${e.tipo || ""}</span><span>${orario}</span>`;
+      contenitore.appendChild(div);
+    });
+    if (entries.length === 0) {
+      contenitore.innerHTML = '<div class="log-item">Nessun ciclo registrato ancora.</div>';
+    }
+  });
+}
+</script>
+</body>
+</html>
