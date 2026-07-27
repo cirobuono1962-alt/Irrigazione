@@ -545,23 +545,82 @@ function ascoltaDevice(){
   });
 }
 
+function calcolaDurataMin(inizioStr, fineStr){
+  const i = new Date(inizioStr.replace(" ", "T"));
+  const f = new Date(fineStr.replace(" ", "T"));
+  return Math.max(0, Math.round((f - i) / 60000));
+}
+
 function ascoltaLog(){
-  db.ref("/log").limitToLast(8).on("value", snap => {
+  // Leggiamo più righe grezze (20 invece di 8) perché ogni ciclo produce
+  // due righe (inizio+fine): così riusciamo ad abbinarle correttamente
+  // anche quando più zone sono state attive nello stesso periodo.
+  db.ref("/log").limitToLast(20).on("value", snap => {
     const contenitore = document.getElementById("logContainer");
     if (!contenitore) return;
+
+    const raw = [];
+    snap.forEach(child => { raw.push(child.val()); });
+
+    // Abbiniamo ogni "inizio" con la successiva "fine" della stessa zona
+    const pendenti = {}; // zona -> { inizio, tipo }
+    const cicli = [];
+
+    raw.forEach(e => {
+      if (e.inizio) {
+        pendenti[e.zona] = { inizio: e.inizio, tipo: e.tipo };
+      } else if (e.fine) {
+        const p = pendenti[e.zona];
+        if (p) {
+          cicli.push({ zona: e.zona, tipo: e.tipo || p.tipo, inizio: p.inizio, fine: e.fine });
+          delete pendenti[e.zona];
+        } else {
+          // una "fine" senza "inizio" corrispondente nella finestra letta
+          cicli.push({ zona: e.zona, tipo: e.tipo, inizio: null, fine: e.fine });
+        }
+      }
+    });
+    // zone ancora aperte (inizio senza fine nella finestra letta - es. in corso ora)
+    Object.keys(pendenti).forEach(zona => {
+      cicli.push({ zona, tipo: pendenti[zona].tipo, inizio: pendenti[zona].inizio, fine: null });
+    });
+
+    // più recenti prima (in base a fine, o inizio se ancora in corso)
+    cicli.sort((a, b) => {
+      const ta = new Date((a.fine || a.inizio).replace(" ", "T")).getTime();
+      const tb = new Date((b.fine || b.inizio).replace(" ", "T")).getTime();
+      return tb - ta;
+    });
+
+    const ultimi = cicli.slice(0, 8);
+
     contenitore.innerHTML = "";
-    const entries = [];
-    snap.forEach(child => { entries.push(child.val()); });
-    entries.reverse().forEach(e => {
+    if (ultimi.length === 0) {
+      contenitore.innerHTML = '<div class="log-item">Nessun ciclo registrato ancora.</div>';
+      return;
+    }
+
+    ultimi.forEach(c => {
       const div = document.createElement("div");
       div.className = "log-item";
-      const orario = e.fine || e.inizio || "";
-      div.innerHTML = `<span><b>${e.zona || "-"}</b> · ${e.tipo || ""}</span><span>${orario}</span>`;
+      let testo = "";
+      if (c.inizio && c.fine) {
+        const [dataIni, oraIniCompleta] = c.inizio.split(" ");
+        const oraFinCompleta = c.fine.split(" ")[1];
+        const oraIni = oraIniCompleta.slice(0, 5);
+        const oraFin = oraFinCompleta.slice(0, 5);
+        const min = calcolaDurataMin(c.inizio, c.fine);
+        testo = `${dataIni} · ${oraIni}–${oraFin} · ${min} min`;
+      } else if (c.inizio && !c.fine) {
+        const [dataIni, oraIniCompleta] = c.inizio.split(" ");
+        testo = `${dataIni} · ${oraIniCompleta.slice(0, 5)} · in corso`;
+      } else if (c.fine && !c.inizio) {
+        const [dataFin, oraFinCompleta] = c.fine.split(" ");
+        testo = `${dataFin} · fino alle ${oraFinCompleta.slice(0, 5)}`;
+      }
+      div.innerHTML = `<span><b>${c.zona || "-"}</b> · ${c.tipo || ""}</span><span>${testo}</span>`;
       contenitore.appendChild(div);
     });
-    if (entries.length === 0) {
-      contenitore.innerHTML = '<div class="log-item">Nessun ciclo registrato ancora.</div>';
-    }
   });
 }
 </script>
