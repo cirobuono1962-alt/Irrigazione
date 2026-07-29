@@ -581,8 +581,18 @@ function ascoltaLog(){
       }
     });
     // zone ancora aperte (inizio senza fine nella finestra letta - es. in corso ora)
+    // Verifichiamo con lo stato reale della zona (zoneData): se non risulta
+    // più attiva davvero, non mostriamo "in corso" all'infinito - probabilmente
+    // si è chiusa senza lasciare traccia nel registro (es. riavvio scheda).
     Object.keys(pendenti).forEach(zona => {
-      cicli.push({ zona, tipo: pendenti[zona].tipo, inizio: pendenti[zona].inizio, fine: null });
+      const davveroAttiva = zoneData[zona] && zoneData[zona].statoAttuale === true;
+      cicli.push({
+        zona,
+        tipo: pendenti[zona].tipo,
+        inizio: pendenti[zona].inizio,
+        fine: null,
+        incerta: !davveroAttiva
+      });
     });
 
     // più recenti prima (in base a fine, o inizio se ancora in corso)
@@ -613,7 +623,9 @@ function ascoltaLog(){
         testo = `${dataIni} · ${oraIni}–${oraFin} · ${min} min`;
       } else if (c.inizio && !c.fine) {
         const [dataIni, oraIniCompleta] = c.inizio.split(" ");
-        testo = `${dataIni} · ${oraIniCompleta.slice(0, 5)} · in corso`;
+        testo = c.incerta
+          ? `${dataIni} · ${oraIniCompleta.slice(0, 5)} · interrotto (senza registrazione fine)`
+          : `${dataIni} · ${oraIniCompleta.slice(0, 5)} · in corso`;
       } else if (c.fine && !c.inizio) {
         const [dataFin, oraFinCompleta] = c.fine.split(" ");
         testo = `${dataFin} · fino alle ${oraFinCompleta.slice(0, 5)}`;
