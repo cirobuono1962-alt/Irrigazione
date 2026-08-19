@@ -23,6 +23,11 @@
     border:none; border-radius:8px; padding:4px 6px; font-size:.8rem;
     background:rgba(255,255,255,.2); color:#fff;
   }
+  .btn-riavvia{
+    background:rgba(255,255,255,.25); color:#fff; border:none;
+    border-radius:8px; padding:5px 10px; font-size:.75rem; font-weight:600;
+    cursor:pointer; margin-left:auto;
+  }
   .dot{width:7px;height:7px;border-radius:50%;background:#8ee6c2;display:inline-block;}
   .dot.off{background:#e6a08e;}
 
@@ -147,6 +152,7 @@
   <div class="riavvio-riga">
     <span>Riavvio automatico giornaliero:</span>
     <input type="time" id="riavvioOra">
+    <button id="btnRiavviaOra" class="btn-riavvia">Riavvia ora</button>
   </div>
 </header>
 
@@ -564,6 +570,11 @@ function ascoltaDevice(){
   document.getElementById("riavvioOra").addEventListener("change", e => {
     db.ref("/device/riavvioOra").set(e.target.value);
     showToast("Orario riavvio aggiornato: " + e.target.value);
+  });
+
+  document.getElementById("btnRiavviaOra").addEventListener("click", () => {
+    db.ref("/device/comandoRiavvio").set(true);
+    showToast("Riavvio richiesto…");
   });
 }
 
